@@ -56,8 +56,6 @@ func (h *Handler) tryStart(id string) bool {
 	t.started = true
 	h.tasks[id] = t
 
-	fmt.Println("starting: ", id)
-
 	return true
 }
 
@@ -68,8 +66,6 @@ func (h *Handler) setDone(id string) {
 	q := h.tasks[id]
 	q.done = true
 	h.tasks[id] = q
-
-	fmt.Println("done:", id)
 }
 
 func (h *Handler) get(id string) (task, bool) {
@@ -161,16 +157,42 @@ func NewHandler(handlerFunc func(string) error, tasks ...Task) (*Handler, error)
 		tasks:       make(map[string]task),
 	}
 
+	var canStart = false
+	var waitForItself []string
+
+f:
 	for _, t := range tasks {
 		_, ok := handler.tasks[t.Id]
 		if ok {
 			return nil, errors.New(fmt.Sprintf("multiple tasks with id '%s'", t.Id))
 		}
+
+		for _, w := range t.WaitFor {
+			if t.Id == w {
+				waitForItself = append(waitForItself, t.Id)
+				continue f
+			}
+		}
+
 		handler.tasks[t.Id] = task{
 			waitFor: t.WaitFor,
 			started: false,
 			done:    false,
 		}
+
+		if !canStart {
+			if len(t.WaitFor) == 0 {
+				canStart = true
+			}
+		}
+	}
+
+	if !canStart {
+		return nil, errors.New("tasks must include at least one task that has not to wait for other tasks")
+	}
+
+	if len(waitForItself) > 0 {
+		return nil, errors.New(fmt.Sprintf("tasks cannot wit for themselves, please check task(s) '%s'", strings.Join(waitForItself, "','")))
 	}
 
 	var notExisting = make(map[string]bool)
