@@ -11,6 +11,7 @@ import (
 type Task struct {
 	Id      string
 	WaitFor []string
+	Skip    bool
 }
 
 type task struct {
@@ -176,8 +177,8 @@ f:
 
 		handler.tasks[t.Id] = task{
 			waitFor: t.WaitFor,
-			started: false,
-			done:    false,
+			started: t.Skip,
+			done:    t.Skip,
 		}
 
 		if !canStart {
